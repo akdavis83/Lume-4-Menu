@@ -1,0 +1,225 @@
+<base href="https://docs.lume.io/examples/buttons-with-shadow/example.html" />
+<script src="../../importmap.js"></script>
+<script src="../../modules/vue/dist/vue.js"></script>
+<!-- Tween.js is a lib for animating numbers based on "easing curves". -->
+<script src="../../modules/tween.js/src/Tween.js"></script>
+<link rel="icon" href="https://fav.farm/✅" />
+<style>
+	@import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+	body,
+	html {
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		touch-action: none;
+		background: black;
+	}
+	lume-element3d {
+		text-align: center;
+	}
+	button {
+		width: 100%;
+		height: 100%;
+		white-space: nowrap;
+		border-radius: 10px;
+		border: none;
+		background: #595c5e;
+		color: #ccc;
+		outline: none;
+		font-family: 'Poppins', sans-serif;
+		font-weight: bold;
+		font-size: 16px;
+	}
+	button:focus,
+	button:hover {
+		background: #617e9f;
+	}
+</style>
+
+<template vue>
+	<form style="display: contents" onclick="window.location.href='https://akdavis83.github.io/Lume-3-Menu/'; event.preventDefault()">
+		<div style="width: 100%; height: 100%">
+			<!-- Lights and shadows are powered by WebGL, but written with HTML: -->
+			<lume-scene
+				webgl="true"
+				enable-css="true"
+				id="scene"
+				background-color="black"
+				background-opacity="0"
+				perspective="600"
+				shadowmap-type="pcfsoft"
+				NOTE="one of basic, pcf, pcfsoft"
+				touch-action="none"
+				@pointermove="onmove"
+				@pointerdown="ondown"
+				@pointerup="onup"
+				physically-correct-lights
+			>
+				<lume-ambient-light color="#ffffff" intensity="2"></lume-ambient-light>
+
+				<lume-plane
+					ref="plane"
+					id="background"
+					size-mode="literal literal"
+					size="300 300 0"
+					align-point="0.5 0.5"
+					mount-point="0.5 0.5"
+					has="phong-material"
+					color="white"
+					dithering
+					color="white"
+					comment="free texture from https://polyhaven.com/a/concrete_layers_02"
+					texture="../../textures/cement-wall/diff_2k.jpg"
+					bump-map="../../textures/cement-wall/disp_2k.jpg"
+					bump-scale="8"
+					shininess="200"
+					specular="#222"
+				>
+					<lume-element3d
+						id="button-container"
+						position="0 0 20"
+						size="520 38 0"
+						align-point="0.5 0.5 0"
+						mount-point="0.5 0.5 0"
+					>
+						<lume-mixed-plane
+							v-for="(item, i) in buttons"
+							ref="btn"
+							:key="i"
+							size-mode="literal proportional"
+							size="120 1 0"
+							:align-point="`${i*0.333} 0 0`"
+							:mount-point="`${i*0.333} 0 0`"
+							color="#444"
+							has="rounded-rectangle-geometry"
+							corner-radius="10"
+							thickness="1"
+							quadratic-corners="false"
+							roughness="0.48"
+						>
+							<!-- Native button elements! -->
+							<button>{{item}}</button>
+						</lume-mixed-plane>
+					</lume-element3d>
+				</lume-plane>
+
+				<lume-element3d id="lightContainer" size="0 0 0" position="0 0 300">
+					<lume-point-light
+						id="light"
+						color="white"
+						size="0 0 0"
+						position="-50 -50"
+						intensity="1000"
+						shadow-map-width="2048"
+						shadow-map-height="2048"
+						shadow-radius="10"
+						distance="800"
+						shadow-bias="-0.001"
+					>
+						<lume-mesh
+							id="bulb"
+							has="sphere-geometry basic-material"
+							size="10 10 10"
+							mount-point="0.5 0.5 0.5"
+							color="white"
+							receive-shadow="false"
+							cast-shadow="false"
+							style="pointer-events: none"
+						></lume-mesh>
+					</lume-point-light>
+				</lume-element3d>
+			</lume-scene>
+		</div>
+	</form>
+</template>
+
+<div id="buttonsRoot"></div>
+
+<script type="module">
+	import {Motor, Events} from 'lume'
+
+	new Vue({
+		el: '#buttonsRoot',
+		template: document.querySelector('[vue]').innerHTML,
+
+		data: () => ({
+			buttons: ['🏖️ Multi', '😊 Lume', '🛠️ Menu', '♥️ Navigation'],
+		}),
+
+		mounted() {
+			const lightContainer = document.querySelector('#lightContainer')
+			const bulb = document.querySelector('#bulb')
+			const plane = this.$refs.plane
+			this.targetPosition = {x: window.innerWidth / 2, y: window.innerHeight / 2}
+
+			Motor.addRenderTask(time => {
+				lightContainer.position.x += (this.targetPosition.x - lightContainer.position.x) * 0.05
+				lightContainer.position.y += (this.targetPosition.y - lightContainer.position.y) * 0.05
+				console.log(lightContainer.position.x, lightContainer.position.y)
+				plane.rotation.y = 10 * (lightContainer.position.x / window.innerWidth) - 5
+				plane.rotation.x = -(10 * (lightContainer.position.y / window.innerHeight) - 5)
+			})
+
+			window.addEventListener('resize', resize)
+			resize()
+			function resize() {
+				const winAspect = window.innerWidth / window.innerHeight
+				if (winAspect < 1) plane.size = [window.innerHeight * 1.3, window.innerHeight * 1.3]
+				else plane.size = [window.innerWidth * 1.3, window.innerWidth * 1.3]
+			}
+		},
+
+		methods: {
+			onmove(e) {
+				e.preventDefault()
+				this.targetPosition.x = e.clientX
+				this.targetPosition.y = e.clientY
+			},
+
+			// On mouse down animate the button downward using Tween.js
+			// https://github.com/tweenjs/tween.js
+			ondown(e) {
+				if (e.target.matches('button')) {
+					this.pressedButton = e.target
+
+					if (this.upTween) {
+						this.upTween.stop()
+						this.upTween = null
+					}
+
+					this.downTween = new TWEEN.Tween(e.target.parentNode.position)
+						.to({z: -16}, 75)
+						.start()
+						.onComplete(() => (this.downTween = null))
+
+					Motor.addRenderTask(time => {
+						if (!this.downTween) return false
+						this.downTween.update(time)
+					})
+				}
+			},
+
+			// On mouse up animate the button upward using Tween.js
+			onup() {
+				if (this.pressedButton) {
+					if (this.downTween) {
+						this.downTween.stop()
+						this.downTween = null
+					}
+
+					this.upTween = new TWEEN.Tween(this.pressedButton.parentNode.position)
+						.to({z: 0}, 75)
+						.start()
+						.onComplete(() => (this.upTween = null))
+
+					Motor.addRenderTask(time => {
+						if (!this.upTween) return false
+						this.upTween.update(time)
+					})
+				}
+			},
+		},
+	})
+</script>
